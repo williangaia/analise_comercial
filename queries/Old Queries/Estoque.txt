@@ -1,0 +1,36 @@
+-- Estoque
+SELECT
+    d.nroempresa AS "store",
+    d.seqproduto AS "item",
+    (d.estqloja + d.estqdeposito) AS "current_qty",
+    ROUND((d.estqloja + d.estqdeposito) * d.cmultcusliquidoemp, 2) AS "valor_estoque",
+    ROUND((d.estqloja + d.estqdeposito) / NULLIF(d.medvdiageral, 0), 2) AS "dias_estoque",
+    ROUND((d.estqloja + d.estqdeposito) * t.precobasenormal, 2) AS "valor_preco_venda",
+    TO_CHAR(TRUNC(SYSDATE), 'DD-MM-YYYY') AS "date",
+    d.qtdpendpedcompra AS "pendente",
+    d.qtdpedrectransito AS "transito"
+FROM consinco.mrl_produtoempresa d
+JOIN consinco.map_produto p ON p.seqproduto = d.seqproduto
+JOIN consinco.map_famembalagem fe ON fe.seqfamilia = p.seqfamilia
+JOIN consinco.map_famdivcateg dc ON p.seqfamilia = dc.seqfamilia
+JOIN consinco.map_categoria c ON c.seqcategoria = dc.seqcategoria
+                                 AND c.nrodivisao = dc.nrodivisao
+JOIN consinco.map_famdivisao fd ON fd.nrodivisao = c.nrodivisao
+                                 AND fd.seqfamilia = p.seqfamilia
+                                 AND fe.qtdembalagem = fd.padraoembcompra
+JOIN consinco.map_familia f ON f.seqfamilia = p.seqfamilia
+JOIN consinco.map_marca m ON m.seqmarca = f.seqmarca
+JOIN consinco.max_empresa e ON e.nroempresa = d.nroempresa
+JOIN consinco.mrl_prodempseg t ON t.nroempresa = e.nroempresa
+                                 AND t.seqproduto = p.seqproduto
+                                 AND t.qtdembalagem = 1
+                                 AND t.statusvenda = 'A'
+                                 AND t.precogernormal <> 0
+WHERE c.nivelhierarquia = 4
+  AND c.statuscategor = 'A'
+  AND dc.status = 'A'
+  AND m.status = 'A'
+  AND fd.nrodivisao IN (1) -- descomente se precisar filtrar divis es espec ficas
+  AND e.nrodivisao = fd.nrodivisao
+  --AND (d.estqloja <> 0 OR d.estqdeposito <> 0);
+AND d.statuscompra = 'A'

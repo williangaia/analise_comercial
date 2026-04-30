@@ -1,0 +1,18 @@
+--map categoria
+SELECT 
+    c4.seqcategoria AS seq_categoria_nivel4,
+    c4.categoria AS categoria_nivel4,
+    c3.seqcategoria AS seq_categoria_nivel3,
+    c3.categoria AS categoria_nivel3,
+    c2.seqcategoria AS seq_categoria_nivel2,
+    c2.categoria AS categoria_nivel2,
+    c1.seqcategoria AS seq_categoria_nivel1,
+    c1.categoria AS categoria_nivel1,
+    c4.caminhocompleto
+FROM consinco.map_categoria c4
+LEFT JOIN consinco.map_categoria c3 ON c4.seqcategoriapai = c3.seqcategoria AND c3.nrodivisao = 1
+LEFT JOIN consinco.map_categoria c2 ON c3.seqcategoriapai = c2.seqcategoria AND c2.nrodivisao = 1
+LEFT JOIN consinco.map_categoria c1 ON c2.seqcategoriapai = c1.seqcategoria AND c1.nrodivisao = 1
+WHERE c4.nrodivisao = 1
+AND c4.nivelhierarquia = 4;
+

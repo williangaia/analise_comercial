@@ -1,0 +1,41 @@
+--ProdutoEmpresa
+SELECT
+    P.SEQPRODUTO,
+    P.DESCCOMPLETA AS "PRODUTO",
+    DC.STATUS,
+    C.SEQCATEGORIA,
+    dc.status as "STATUSDIVISAO", 
+    PE.STATUSCOMPRA AS "STATUSCOMPRA",
+    PE.STATUSCADASTRO AS "STATUSCADASTRO",
+    PE.NROEMPRESA,
+    DC.NRODIVISAO AS "NRODIVISAO"
+FROM 
+    consinco.map_produto P
+JOIN 
+    consinco.map_familia F ON P.SEQFAMILIA = F.SEQFAMILIA
+JOIN 
+    consinco.map_famdivisao A ON F.SEQFAMILIA = A.SEQFAMILIA
+JOIN 
+    consinco.map_famdivcateg DC ON A.SEQFAMILIA = DC.SEQFAMILIA AND DC.NRODIVISAO = A.NRODIVISAO
+JOIN 
+    consinco.map_categoria C ON DC.SEQCATEGORIA = C.SEQCATEGORIA AND DC.NRODIVISAO = C.NRODIVISAO AND DC.STATUS = C.STATUSCATEGOR
+JOIN 
+    consinco.max_comprador CP ON A.SEQCOMPRADOR = CP.SEQCOMPRADOR
+JOIN
+    consinco.map_marca M ON F.SEQMARCA = M.SEQMARCA
+JOIN 
+    consinco.MAP_FAMFORNEC FF ON F.SEQFAMILIA = FF.SEQFAMILIA
+JOIN 
+    consinco.GE_PESSOA FP ON FF.Seqfornecedor = FP.Seqpessoa
+JOIN 
+    consinco.MRL_PRODUTOEMPRESA PE ON P.SEQPRODUTO = PE.SEQPRODUTO
+JOIN 
+    consinco.mrl_prodempseg b  on p.seqproduto = b.seqproduto and  dc.nrodivisao = b.nrosegmento and b.nroempresa = pe.nroempresa
+WHERE 
+    DC.NRODIVISAO in (1, 2)
+    AND C.NIVELHIERARQUIA = 4
+    AND C.STATUSCATEGOR = 'A'
+    AND FF.PRINCIPAL = 'S'
+    AND PE.STATUSCOMPRA = 'A'
+    and b.statusvenda = 'A'
+    and b.qtdembalagem = 1

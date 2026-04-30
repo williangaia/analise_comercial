@@ -1,0 +1,80 @@
+-- ProdutoCategoria 
+SELECT * FROM (
+    SELECT
+        P.SEQPRODUTO,
+        P.SEQFAMILIA,
+        F.FAMILIA,
+        P.DESCCOMPLETA AS "PRODUTO",
+        TO_CHAR(P.DTAHORINCLUSAO, 'YYYY-MM-DD') AS "DTAINCLUSAOPROD",
+        TO_CHAR(P.DTAHORALTERACAO, 'YYYY-MM-DD') AS "DTAALTERACAOPROD",
+        P.USUARIOALTERACAO AS "USUALTERACAOPROD",
+        TO_CHAR(DC.DATAHORAALTERACAO, 'YYYY-MM-DD') AS "DTAALTERACAOFAMDIVCATEG",
+        DC.USUARIOALTERACAO AS "USUALTERACAOFAMDIVCATEG",
+        DC.STATUS,
+        C.SEQCATEGORIA,
+        C.CAMINHOCOMPLETO AS "CATEGORIA",
+        TO_CHAR(C.DTAHORALTERACAO, 'YYYY-MM-DD') AS "DTAALTERACAOCATEG",
+        TO_CHAR(A.DTAHORINCLUSAO, 'YYYY-MM-DD') AS "DTAINCLUSAOFAMDIV",
+        TO_CHAR(A.DTAHORALTERACAO, 'YYYY-MM-DD') AS "DTAALTERACAOFAMDIV",
+        A.USUARIOALTERACAO AS "USUALTERACAOFAMDIV",
+        ROUND(A.PADRAOEMBTRANSF, 2) AS "PADRAOEMBTRANSF",
+        ROUND(A.PADRAOEMBCOMPRA, 2) AS "PADRAOEMBCOMPRA",
+        CP.COMPRADOR,
+        M.MARCA,
+        FP.NOMERAZAO,
+        DC.NRODIVISAO,
+        (SELECT CASE
+                   WHEN V.FORMAABASTECIMENTO = 'M' AND B.NROEMPRESA <> 13 THEN '13'
+                   ELSE NULL
+                END
+         FROM consinco.MAP_FAMDIVISAO V,
+              consinco.MRL_PRODUTOEMPRESA B,
+              consinco.MAX_DIVISAO D2
+         WHERE V.SEQFAMILIA = P.SEQFAMILIA
+           AND V.NRODIVISAO = D2.NRODIVISAO
+           AND B.SEQPRODUTO = P.SEQPRODUTO
+           AND D2.NRODIVISAO = DC.NRODIVISAO
+           AND B.NROEMPRESA NOT IN (17, 18, 100)
+           AND ROWNUM = 1
+        ) AS "5_LOCAL_ORIG",
+        ROW_NUMBER() OVER (
+            PARTITION BY P.SEQPRODUTO 
+            ORDER BY 
+                CASE WHEN DC.NRODIVISAO = 1 THEN 0 ELSE 1 END,  -- prioriza divisão 1
+                CASE WHEN DC.STATUS = 'A' THEN 0 ELSE 1 END,    -- prioriza status ativo
+                DC.DATAHORAALTERACAO DESC
+        ) AS RN
+    FROM 
+        consinco.map_produto P
+    -- INNER: família é obrigatória (todo produto tem)
+    JOIN consinco.map_familia F 
+        ON P.SEQFAMILIA = F.SEQFAMILIA
+    -- INNER: divisão é necessária para categoria
+    JOIN consinco.map_famdivisao A 
+        ON F.SEQFAMILIA = A.SEQFAMILIA
+    -- INNER: relação família-divisão-categoria
+    JOIN consinco.map_famdivcateg DC 
+        ON A.SEQFAMILIA = DC.SEQFAMILIA 
+        AND DC.NRODIVISAO = A.NRODIVISAO
+    -- INNER: categoria (mas sem filtro de status aqui)
+    JOIN consinco.map_categoria C 
+        ON DC.SEQCATEGORIA = C.SEQCATEGORIA 
+        AND DC.NRODIVISAO = C.NRODIVISAO
+    -- LEFT: comprador pode não existir
+    LEFT JOIN consinco.max_comprador CP 
+        ON A.SEQCOMPRADOR = CP.SEQCOMPRADOR
+    -- LEFT: marca pode não existir
+    LEFT JOIN consinco.map_marca M 
+        ON F.SEQMARCA = M.SEQMARCA
+    -- LEFT: fornecedor principal pode não existir
+    LEFT JOIN consinco.MAP_FAMFORNEC FF 
+        ON F.SEQFAMILIA = FF.SEQFAMILIA 
+        AND FF.PRINCIPAL = 'S'
+    LEFT JOIN consinco.GE_PESSOA FP 
+        ON FF.Seqfornecedor = FP.Seqpessoa
+    WHERE 
+        C.NIVELHIERARQUIA = 4
+        AND P.DTAHORALTERACAO >= DATE '2013-01-01'
+        AND P.DESCCOMPLETA NOT LIKE '%INATIVO%'
+)
+WHERE RN = 1

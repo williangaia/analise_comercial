@@ -1,0 +1,62 @@
+--vendas
+WITH base_vendas AS (
+    SELECT
+        c.codproduto,
+        c.vlritem,
+        c.quantidade,
+        c.codgeraloper,
+        c.dtamovimento,
+        c.nroempresa
+    FROM consinco.MFL_CUPOMFISCAL c
+    WHERE c.dtamovimento = TRUNC(SYSDATE - 1)
+
+
+      AND c.codgeraloper IN (520, 314, 317, 542)
+)
+SELECT
+    b.codproduto AS "item",
+    ROUND(SUM(
+        CASE
+            WHEN b.codgeraloper IN (520, 314, 317) THEN b.vlritem
+            WHEN b.codgeraloper = 542 THEN -b.vlritem
+            ELSE 0
+        END
+    ), 2) AS "value",
+    ROUND(SUM(
+        CASE
+            WHEN b.codgeraloper IN (520, 314, 317) THEN b.quantidade
+            WHEN b.codgeraloper = 542 THEN -b.quantidade
+            ELSE 0
+        END
+    ), 2) AS "sales",
+    TO_CHAR(b.dtamovimento, 'DD/MM/YYYY') AS "date",
+    b.nroempresa AS "store"
+FROM base_vendas b
+JOIN consinco.map_produto p
+  ON p.seqproduto = b.codproduto
+WHERE EXISTS (
+    SELECT 1
+    FROM consinco.tisuper_familiacategoria f
+    JOIN consinco.map_familia fam
+      ON fam.seqfamilia = p.seqfamilia
+    JOIN consinco.map_famdivisao a
+      ON a.seqfamilia = fam.seqfamilia
+    JOIN consinco.map_famdivcateg dc
+      ON dc.seqfamilia = a.seqfamilia
+     AND dc.nrodivisao = a.nrodivisao
+    JOIN consinco.map_categoria ct
+      ON ct.seqcategoria = dc.seqcategoria
+     AND ct.nrodivisao = dc.nrodivisao
+     AND ct.statuscategor = dc.status
+    WHERE f.seqproduto = p.seqproduto
+      AND f.nrodivisao IN (1, 2)
+      AND dc.nrodivisao IN (1, 2)
+      AND ct.nivelhierarquia = 4
+      AND ct.statuscategor = 'A'
+)
+GROUP BY
+    b.codproduto, b.nroempresa, b.dtamovimento
+ORDER BY
+    b.dtamovimento, b.codproduto, b.nroempresa;
+
+ 

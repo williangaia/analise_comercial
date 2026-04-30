@@ -1,0 +1,36 @@
+-- Vendas
+SELECT 
+    c.codproduto AS "item",
+    SUM(
+        CASE 
+            WHEN c.codgeraloper IN (520, 314, 317) THEN c.vlritem 
+            WHEN c.codgeraloper = 542 THEN -c.vlritem 
+        END
+    ) AS "value",
+    SUM(
+        CASE 
+            WHEN c.codgeraloper IN (520, 314, 317) THEN c.quantidade 
+            WHEN c.codgeraloper = 542 THEN -c.quantidade 
+        END
+    ) AS "sales",
+    TO_CHAR(c.dtamovimento, 'DD-MM-YYYY') AS "date",
+    c.nroempresa AS "store"
+FROM 
+    consinco.MFL_CUPOMFISCAL c
+    JOIN consinco.map_produto p ON p.seqproduto = c.codproduto
+    JOIN consinco.tisuper_familiacategoria f ON f.seqproduto = p.seqproduto
+    JOIN consinco.map_familia fam ON p.seqfamilia = fam.seqfamilia
+    JOIN consinco.map_famdivisao a ON fam.seqfamilia = a.seqfamilia
+    JOIN consinco.map_famdivcateg dc ON a.seqfamilia = dc.seqfamilia AND dc.nrodivisao = a.nrodivisao
+    JOIN consinco.map_categoria ct ON dc.seqcategoria = ct.seqcategoria AND dc.nrodivisao = ct.nrodivisao AND dc.status = ct.statuscategor
+WHERE 
+    c.dtamovimento = TRUNC(SYSDATE) - 1
+    AND c.codgeraloper IN (520, 314, 317, 542)
+    AND dc.nrodivisao IN (1, 2)
+    AND ct.nivelhierarquia = 4
+    AND ct.statuscategor = 'A'
+    AND f.nrodivisao = 1
+GROUP BY 
+    p.desccompleta, c.codproduto, c.nroempresa, c.dtamovimento, ct.seqcategoria
+ORDER BY 
+    c.dtamovimento, c.codproduto, c.nroempresa

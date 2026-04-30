@@ -1,0 +1,86 @@
+-- Estoque
+WITH famdiv_unica AS (
+    SELECT
+        fd.seqfamilia,
+        fd.nrodivisao,
+        fd.padraoembcompra,
+        ROW_NUMBER() OVER (
+            PARTITION BY fd.seqfamilia, fd.nrodivisao
+            ORDER BY fd.padraoembcompra DESC NULLS LAST
+        ) AS rn
+    FROM consinco.map_famdivisao fd
+),
+cat_ranked AS (
+    SELECT
+        dc.seqfamilia,
+        dc.nrodivisao,
+        dc.seqcategoria,
+        ROW_NUMBER() OVER (
+            PARTITION BY dc.seqfamilia, dc.nrodivisao
+            ORDER BY dc.datahoraalteracao DESC NULLS LAST, dc.seqcategoria DESC
+        ) AS rn
+    FROM consinco.map_famdivcateg dc
+    JOIN consinco.map_categoria c
+      ON c.seqcategoria = dc.seqcategoria
+     AND c.nrodivisao = dc.nrodivisao
+     AND c.statuscategor = dc.status
+    WHERE dc.status = 'A'
+      AND c.nivelhierarquia = 4
+      AND c.statuscategor = 'A'
+),
+fornec_principal AS (
+    SELECT
+        ff.seqfamilia,
+        ff.seqfornecedor,
+        ROW_NUMBER() OVER (
+            PARTITION BY ff.seqfamilia
+            ORDER BY ff.seqfornecedor
+        ) AS rn
+    FROM consinco.map_famfornec ff
+    WHERE ff.principal = 'S'
+)
+SELECT
+    d.nroempresa AS "store",
+    d.seqproduto AS "item",
+    (d.estqloja + d.estqdeposito) AS "current_qty",
+    ROUND((d.estqloja + d.estqdeposito) * d.cmultcusliquidoemp, 2) AS "valor_estoque",
+    ROUND((d.estqloja + d.estqdeposito) / NULLIF(d.medvdiageral, 0), 2) AS "dias_estoque",
+    ROUND((d.estqloja + d.estqdeposito) * t.precobasenormal, 2) AS "valor_preco_venda",
+    TO_CHAR(TRUNC(SYSDATE), 'DD-MM-YYYY') AS "date",
+    ROUND(d.qtdpendpedcompra, 2) AS "pendente",
+    ROUND(d.qtdpedrectransito, 2) AS "transito",
+    fp.seqfornecedor AS "fornecedor",
+    cr.seqcategoria AS "seqcategoria",
+    fu.nrodivisao AS "nrodivisao"
+FROM consinco.mrl_produtoempresa d
+JOIN consinco.map_produto p
+  ON p.seqproduto = d.seqproduto
+JOIN consinco.map_familia f
+  ON f.seqfamilia = p.seqfamilia
+JOIN consinco.map_marca m
+  ON m.seqmarca = f.seqmarca
+JOIN consinco.max_empresa e
+  ON e.nroempresa = d.nroempresa
+JOIN consinco.mrl_prodempseg t
+  ON t.nroempresa = e.nroempresa
+ AND t.seqproduto = p.seqproduto
+ AND t.qtdembalagem = 1
+ AND t.statusvenda = 'A'
+ AND t.precogernormal <> 0
+JOIN famdiv_unica fu
+  ON fu.seqfamilia = p.seqfamilia
+ AND fu.nrodivisao = e.nrodivisao
+ AND fu.rn = 1
+JOIN consinco.map_famembalagem fe
+  ON fe.seqfamilia = p.seqfamilia
+ AND fe.qtdembalagem = fu.padraoembcompra
+JOIN cat_ranked cr
+  ON cr.seqfamilia = p.seqfamilia
+ AND cr.nrodivisao = fu.nrodivisao
+ AND cr.rn = 1
+LEFT JOIN fornec_principal fp
+  ON fp.seqfamilia = p.seqfamilia
+ AND fp.rn = 1
+WHERE m.status = 'A'
+  AND fu.nrodivisao IN (1)
+  AND d.statuscompra = 'A'

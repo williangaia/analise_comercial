@@ -1,0 +1,30 @@
+--AgendaForncedores
+Select
+ f.seqfornecedor,
+ p.fantasia,
+ c.comprador,
+ Decode (f.agenda_periodicidade,
+ 'S','SEMANAL',
+ 'D','DIARIO',
+ 'N','SEM AGENDAMENTO',
+ 'Q','QUINZENA',
+ 'M','MENSAL',
+ 'T','14 DIAS',
+ 'V','28 DIAS',
+ 'C','CUSTOMIZADO') as PERIODICIDADE,
+ Decode (f.agenda_seg,'S','SIM','N','---') as SEGUNDA,
+ Decode (f.agenda_ter,'S','SIM','N','---') as TERCA,
+ Decode (f.agenda_qua,'S','SIM','N','---') as QUARTA,
+ Decode (f.agenda_qui,'S','SIM','N','---') as QUINTA,
+ Decode (f.agenda_sex,'S','SIM','N','---') as SEXTA,
+ Decode (f.agenda_sab,'S','SIM','N','---') as SABADO,
+ Decode (f.agenda_dom,'S','SIM','N','---') as DOMINGO,
+ f.agenda_dias_intervalo as DIAS_INTERVALO
+from consinco.MAF_FORNECEDOR F, consinco.ge_pessoa p, consinco.maf_fornecdivisao d, consinco.max_comprador c
+Where f.seqfornecedor = p.seqpessoa
+  and d.seqfornecedor = f.seqfornecedor
+  and c.seqcomprador = d.seqcomprador
+  and f.statusgeral = 'A'
+  and d.nrodivisao = 1
+  --and c.comprador in (#LS1)
+Order by p.fantasia

@@ -1,0 +1,99 @@
+--ProdutoEmpresa
+SELECT
+    P.SEQPRODUTO,
+    P.DESCCOMPLETA                                          AS "PRODUTO",
+    DC.STATUS,
+    C.SEQCATEGORIA,
+    DC.STATUS                                               AS "STATUSDIVISAO",
+    PE.STATUSCOMPRA                                         AS "STATUSCOMPRA",
+    PE.STATUSCADASTRO                                       AS "STATUSCADASTRO",
+    PE.NROEMPRESA,
+
+    --------------------------------------------------------------------------
+    -- LOCAL_ORIGEM: 13 se abastecimento via CD (M) e empresa destino <> 13
+    --------------------------------------------------------------------------
+    (
+        SELECT
+            CASE
+                WHEN A.FORMAABASTECIMENTO = 'M' AND PE.NROEMPRESA <> 13
+                THEN '13'
+                ELSE NULL
+            END
+        FROM DUAL
+    )                                                       AS "LOCAL_ORIGEM",
+
+    --------------------------------------------------------------------------
+    -- LEAD_TIME: pzomedentrega do fornecedor conforme origem (CD ou direto)
+    --------------------------------------------------------------------------
+    (
+        SELECT F.PZOMEDENTREGA
+        FROM   consinco.maf_fornecdivisao F
+        WHERE  (
+                   /* Abastecimento via CD: fornecedor = empresa (CD) */
+                   A.FORMAABASTECIMENTO = 'M'
+                   AND PE.NROEMPRESA    <> 13
+                   AND F.SEQFORNECEDOR  = E_PE.SEQPESSOAEMP
+                   AND F.NRODIVISAO     = E_PE.NRODIVISAO
+               )
+               OR
+               (
+                   /* Abastecimento direto: fornecedor principal da família */
+                   NOT (A.FORMAABASTECIMENTO = 'M' AND PE.NROEMPRESA <> 13)
+                   AND F.SEQFORNECEDOR  = FF.SEQFORNECEDOR
+                   AND F.NRODIVISAO     = DC.NRODIVISAO
+               )
+    )                                                       AS "LEAD_TIME",
+
+    --------------------------------------------------------------------------
+    -- DEV_LEAD_TIME: pzomedatraso (desvio/atraso médio)
+    --------------------------------------------------------------------------
+    (
+        SELECT F.PZOMEDATRASO
+        FROM   consinco.maf_fornecdivisao F
+        WHERE  (
+                   A.FORMAABASTECIMENTO = 'M'
+                   AND PE.NROEMPRESA    <> 13
+                   AND F.SEQFORNECEDOR  = E_PE.SEQPESSOAEMP
+                   AND F.NRODIVISAO     = E_PE.NRODIVISAO
+               )
+               OR
+               (
+                   NOT (A.FORMAABASTECIMENTO = 'M' AND PE.NROEMPRESA <> 13)
+                   AND F.SEQFORNECEDOR  = FF.SEQFORNECEDOR
+                   AND F.NRODIVISAO     = DC.NRODIVISAO
+               )
+    )                                                       AS "DEV_LEAD_TIME",
+
+    --------------------------------------------------------------------------
+    -- LOTE_MINIMO: fixo 1 (informação não disponível no sistema)
+    --------------------------------------------------------------------------
+    1                                                       AS "LOTE_MINIMO"
+
+FROM
+    consinco.map_produto          P
+JOIN consinco.map_familia         F   ON P.SEQFAMILIA    = F.SEQFAMILIA
+JOIN consinco.map_famdivisao      A   ON F.SEQFAMILIA    = A.SEQFAMILIA
+JOIN consinco.map_famdivcateg     DC  ON A.SEQFAMILIA    = DC.SEQFAMILIA
+                                     AND DC.NRODIVISAO   = A.NRODIVISAO
+JOIN consinco.map_categoria       C   ON DC.SEQCATEGORIA = C.SEQCATEGORIA
+                                     AND DC.NRODIVISAO   = C.NRODIVISAO
+                                     AND DC.STATUS       = C.STATUSCATEGOR
+JOIN consinco.max_comprador       CP  ON A.SEQCOMPRADOR  = CP.SEQCOMPRADOR
+JOIN consinco.map_marca           M   ON F.SEQMARCA      = M.SEQMARCA
+JOIN consinco.MAP_FAMFORNEC       FF  ON F.SEQFAMILIA    = FF.SEQFAMILIA
+                                     AND FF.PRINCIPAL    = 'S'
+JOIN consinco.GE_PESSOA           FP  ON FF.SEQFORNECEDOR = FP.SEQPESSOA
+JOIN consinco.MRL_PRODUTOEMPRESA  PE  ON P.SEQPRODUTO    = PE.SEQPRODUTO
+JOIN consinco.mrl_prodempseg      B   ON P.SEQPRODUTO    = B.SEQPRODUTO
+                                     AND DC.NRODIVISAO   = B.NROSEGMENTO
+                                     AND B.NROEMPRESA    = PE.NROEMPRESA
+-- JOIN necessário para resolver E_PE (empresa destino ? dados do CD)
+JOIN consinco.MAX_EMPRESA         E_PE ON PE.NROEMPRESA  = E_PE.NROEMPRESA
+
+WHERE
+    DC.NRODIVISAO       = 1
+    AND C.NIVELHIERARQUIA = 4
+    AND C.STATUSCATEGOR   = 'A'
+    AND PE.STATUSCOMPRA   = 'A'
+    AND B.STATUSVENDA     = 'A'
+    AND B.QTDEMBALAGEM    = 1
