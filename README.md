@@ -6,7 +6,7 @@ Script de automação para extração de dados estratégicos do banco Oracle, ge
 
 ## 🖥️ Visão Geral
 
-O sistema carrega consultas SQL de arquivos de texto, executa cada uma delas contra o banco de dados Oracle, exporta os resultados como arquivos CSV e os envia automaticamente por e-mail para os destinatários configurados — tudo sem intervenção humana.
+O sistema carrega consultas SQL de arquivos de texto, executa cada uma delas contra o banco de dados Oracle, exporta os resultados como arquivos CSV e os envia automaticamente por e-mail para os destinatários configurados.
 
 ---
 
@@ -164,15 +164,13 @@ Os logs são gravados diariamente em `logs/app_DD-MM-YYYY.log` com o seguinte fo
 
 - Todas as credenciais (SMTP, e-mail, senha) são carregadas via **variáveis de ambiente** com `python-dotenv`
 - O arquivo `.env` está listado no `.gitignore` e **nunca deve ser versionado**
-- O arquivo `.env.example` serve como modelo público sem dados sensíveis
-
 ---
 
 ## 💡 Decisões Técnicas
 
 - **Design orientado a extensibilidade**: adicionar uma nova query não requer alteração de código — apenas um novo `.txt` na pasta `queries/`
 - **Limpeza automática**: os CSVs da execução anterior são removidos antes de gerar os novos, evitando acúmulo de dados desatualizados
-- **Logs com data no nome**: facilita auditoria histórica sem sobrescrever registros anteriores
+- **Logs com data no nome**: facilita auditoria no dia de falha
 - **Bloco `finally`**: garante registro do tempo de execução mesmo em caso de erro fatal
 
 ---
